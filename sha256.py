@@ -1,14 +1,14 @@
-from multiprocessing.resource_tracker import register
-
-
-def sha256_hash(input_str: str) -> str:
+def sha256_hash(input_str:str) -> str:
     # Define constantes importantes
     blocks_bits_size = 512
     words_per_block = 16
     words_bits_size = 32
 
+    # Codifica a entrada usando utf-8
+    input_str = input_str.encode('utf-8')
+
     # Gera uma cadeia de caracteres com todos os bits da entrada
-    input_str = ''.join(f'{byte:08b}' for byte in input_str.encode('utf-8'))
+    input_str = ''.join(f'{byte:08b}' for byte in input_str)
 
     # Obtém o tamanho da entrada original (em bits)
     input_bits_size = len(input_str)
@@ -29,16 +29,16 @@ def sha256_hash(input_str: str) -> str:
     blocks = [f'{input_str[i:i + blocks_bits_size]}' for i in range(0, len(input_str), blocks_bits_size)]
 
     # Gera as 16 palavras de 32 bits para cada bloco
-    words_blocks = [[int(block[i:i +  words_bits_size], 2) for i in range(0, blocks_bits_size, words_bits_size)] for block in blocks]
+    blocks = [[int(input_str[i:i +  words_bits_size], 2) for i in range(0, blocks_bits_size, words_bits_size)] for block in blocks]
 
     # Expande para as 64 palavras
-    for w in words_blocks:
+    for block in blocks:
         for i in range(16, 64):
             # Gera uma nova palavra de 32 bits
-            new_word = (sigma1(w[i - 2]) + w[i - 7] + sigma0(w[i - 15]) + w[i - 16]) & 0xFFFFFFFF
-            w.append(new_word)
+            new_word = (lsigma1(block[i - 2]) + block[i - 7] + lsigma0(block[i - 15]) + block[i - 16]) & 0xFFFFFFFF
+            block.append(new_word)
 
-    #Definindo registradores
+    # Inicializando os 8 registradores
     registers = [
         0x6a09e667,
         0xbb67ae85,
@@ -50,12 +50,26 @@ def sha256_hash(input_str: str) -> str:
         0x5be0cd19
     ]
 
-def shr(shift_quant: int, word: int) -> int:
-    # O hexadecimal usado é uma máscara, limita o resultado a 32 bits
-    return (word >> shift_quant) & 0xFFFFFFFF
+    # Inicializa as variáveis temporárias
+    a, b , c, d, e, f, g, h = registers
 
-def sigma0(word: int) -> int:
-    return shr(7, word) ^ shr(18, word) ^ shr(3, word)
+def rotr(n:int, word:int):
+    return (word >> n) | (word << (32 - n))
 
-def sigma1(word: int) -> int:
-    return shr(17, word) ^ shr(19, word) ^ shr(10, word)
+def shr(n:int, word:int) -> int:
+    return word >> n
+
+def lsigma0(word:int) -> int:
+    return rotr(7, word) ^ rotr(18, word) ^ shr(3, word)
+
+def lsigma1(word: int) -> int:
+    return rotr(17, word) ^ rotr(19, word) ^ shr(10, word)
+
+def sigma4(word:int) -> int:
+    return rotr(6, word) ^ rotr(11, word) ^ rotr(25, word)
+
+def choice(x:int, y:int, z:int):
+    return (x & y) ^ (~x & z)
+
+def majority(x:int, y:int, z:int):
+    return (x & y) ^ (x & z) ^ (y & z)
